@@ -19,3 +19,27 @@ Advanced Projects Lab's wiki.
 This code repository was put together by the High-Performance computing
 (HPC) group at the [Bibliotheca Alexandrina](https://www.bibalex.org) to
 be used as training material for HPC users.
+
+To run the serial implementation:
+
+```
+time ./pi4py-s.py 1000000
+```
+
+To run it in parallel via Slurm:
+
+```
+sbatch pi4py-p.sh 1000000
+```
+
+To watch the job in the queue:
+
+```
+watch squeue
+```
+
+To check elapsed time after the job finishes:
+
+```
+sacct -Xo jobid,jobname,elapsed
+```
