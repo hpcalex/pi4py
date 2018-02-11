@@ -4,4 +4,4 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --time=00:15:00
 
-mpirun -np 24 ./pi4py-p.py "$@"
+mpirun -np "$SLURM_NTASKS" ./pi4py-p.py "$@"
