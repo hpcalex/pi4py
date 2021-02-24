@@ -64,7 +64,7 @@ def main():
     termsplits = []
 
     for x in range(workers):
-      termsplits.append(xrange(x, n, workers))
+      termsplits.append(range(x, n, workers))
 
     for y, data in enumerate(termsplits):
       dest = y + 1
