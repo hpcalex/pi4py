@@ -53,8 +53,7 @@ __global__ void cuda_pi4py(int *a, int len, double *ans)
 {
   for(int i = 0; i < len; i++)
   {
-     int term = *(a + (2 * i));
-     float partpi = pow(-1.0, (double)term) / (2 * term + 1);
+     float partpi = pow(-1.0, (double)i) / (2 * i + 1);
      ans[0] += partpi;
   }
 }
