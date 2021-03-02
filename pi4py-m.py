@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-# Copyright (C) 2017 Bibliotheca Alexandrina <http://www.bibalex.org/>
+# Copyright (C) 201* Bibliotheca Alexandrina <http://www.bibalex.org/>
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -39,51 +39,48 @@
 # [3] http://hank.uoregon.edu/wiki/index.php/Serial_and_Parallel_Pi_Calculation
 
 
-from __future__ import division
+import os
 import sys
-import time
-from mpi4py import MPI
 from decimal import *
+from multiprocessing import Process, Pipe
 getcontext().prec = 50
 
-def termsum(data):
-  sum = 0
-  for i in data:
-    sign = 1 if i % 2 == 0 else -1
-    sum += Decimal(sign * 2 * 3 ** (.5-i)) / Decimal(2 * i + 1)
-  return sum
 
-def main():
-  comm = MPI.COMM_WORLD
-  rank = comm.Get_rank()
+def termsum(data, y):
+    sum = 0
+    for i in data:
+        sign = 1 if i % 2 == 0 else -1
+        sum += Decimal(sign * 2 * 3 ** (.5 - i)) / Decimal(2 * i + 1)
+    send_end.send([sum, y])
 
-  if rank == 0: # head node
-    n = 100000 if len(sys.argv) == 1 else int(sys.argv[1])
-    size = comm.Get_size()
-    workers = size - 1
-    termsplits = []
-
-    for x in range(workers):
-      termsplits.append(range(x, n, workers))
-
-    for y, data in enumerate(termsplits):
-      dest = y + 1
-      if dest == size:
-        pass
-      else:
-        comm.send(data, dest=dest)
-
-    pi = 0
-    for y in range(workers):
-      source = y + 1
-      partpi = comm.recv(source=source)
-      print("Received partial pi approximation from source: {}".format(source))
-      pi += partpi
-    print("pi = {}, terms = {}, MPI size = {}".format(pi, n, size))
-  else:
-    data = comm.recv(source=0)
-    partpi = termsum(data)
-    comm.send(partpi, dest=0)
 
 if __name__ == '__main__':
-  main()
+
+    n = 100000 if len(sys.argv) == 1 else int(sys.argv[1])
+    workers = int(os.environ['SLURM_JOB_CPUS_PER_NODE'])
+    termsplits = []
+    plist = []
+    pipe_list = []
+    ans = 0
+
+    for x in range(workers):
+        termsplits.append(xrange(x, n, workers))
+
+    for y, data in enumerate(termsplits):
+        recv_end, send_end = Pipe(False)
+        p = Process(target=termsum, args=(data, y))
+        p.start()
+        plist.append(p)
+        pipe_list.append(recv_end)
+
+    for p in plist:
+        p.join()
+
+    for x in pipe_list:
+        rec = x.recv()
+        partpi = rec[0]
+        source = rec[1]
+        print("Received partial pi approximation from source: {}".format(source))
+        ans += partpi
+
+    print("pi = {}, terms = {}, number of processes = {}".format(str(ans), n, workers))

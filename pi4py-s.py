@@ -47,7 +47,7 @@ getcontext().prec = 50
 
 def approxipi(n):
   pi = 0
-  for i in xrange(n+1):
+  for i in range(n+1):
     sign = 1 if i % 2 == 0 else -1
     pi += Decimal(sign * 2 * 3 ** (.5-i)) / Decimal(2 * i + 1)
   return pi
