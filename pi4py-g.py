@@ -70,12 +70,14 @@ ans = numpy.zeros(1, dtype=numpy.float64)
 for x in range(threads):
     termsplits.append(range(x, n, threads))
 
+pi = 0
 for data in enumerate(termsplits):
     cuda_pi4py(
         drv.In(numpy.asarray(data[1])),
         numpy.int32(len(data[1])),
         drv.Out(ans),
         block=(1, 1, 1))
+    pi = pi + ans[0]
 
-pi = Decimal(4 * ans[0])
+pi = 4 * pi
 print("pi = {}, terms = {}, number of threads = {}".format(pi, n, threads))
