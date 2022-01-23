@@ -43,3 +43,11 @@ To check elapsed time after the job finishes:
 ```
 sacct -Xo jobid,jobname,elapsed
 ```
+
+To run it in parallel on GPU via Slurm, 2 arrguments need to be passed, number of terms and number of GPU threads:
+
+```
+sbatch pi4py-g.sh  100000000 10000
+```  
+
+In the example above, 100000000 is the number of terms, and 10000 is the number of GPU threads.
