@@ -39,24 +39,34 @@
 # [3] http://hank.uoregon.edu/wiki/index.php/Serial_and_Parallel_Pi_Calculation
 
 import sys
+import math
 import numpy
 import pycuda.autoinit
 import pycuda.driver as drv
 from decimal import *
 from pycuda.compiler import SourceModule
+from datetime import datetime
 
 mod = SourceModule("""
 #include <stdio.h>
 #include <math.h>
 
-__global__ void cuda_pi4py(int *a, int len, double *ans)
+__global__ void cuda_pi4py(int *a, double * ans, int len)
 {
+  double result = 0.0;
+  double partpi = 0.0;
+
+  int idx = (threadIdx.x+threadIdx.y*blockDim.x+(blockIdx.x*blockDim.x*blockDim.y)+(blockIdx.y*blockDim.x*blockDim.y));
+
   for(int i = 0; i < len; i++)
   {
-     int term = *(a + (2 * i));
-     float partpi = pow(-1.0, (double)term) / (2 * term + 1);
-     ans[0] += partpi;
+     int term = *(a + 2*len*idx + 2*i);
+     partpi = pow(-1.0, term) / (2 * term + 1);
+     result += partpi;
   }
+
+  ans[idx] = result;
+
 }
 """)
 
@@ -65,19 +75,44 @@ n = 100000 if len(sys.argv) < 2 else int(sys.argv[1])
 threads = 100 if len(sys.argv) < 3 else int(sys.argv[2])
 
 termsplits = []
-ans = numpy.zeros(1, dtype=numpy.float64)
+output_array = numpy.zeros((1,threads),dtype=numpy.float64)
+output_array_gpu = drv.mem_alloc(output_array.nbytes)
+
+rnd = 0
+ 
+if n%threads != 0:
+    up = math.ceil(n/threads)
+    rnd = up * threads - n 
 
 for x in range(threads):
-    termsplits.append(range(x, n, threads))
+    termsplits.append(range(x, n+rnd, threads))
+
+data_array = []
+
+for split in enumerate(termsplits):
+    data_array.append(numpy.asarray(split[1]))
 
 pi = 0
-for data in enumerate(termsplits):
-    cuda_pi4py(
-        drv.In(numpy.asarray(data[1])),
-        numpy.int32(len(data[1])),
-        drv.Out(ans),
-        block=(1, 1, 1))
-    pi = pi + ans[0]
+
+blk = threads
+grd = 1
+
+# max 1024 threads per block (Tesla K80)
+if threads > 1000:
+    blk = 1000
+    grd = int(threads/blk)
+
+cuda_pi4py(
+    drv.In(numpy.asarray(data_array)),
+    output_array_gpu,
+    numpy.int32(len(data_array[0])),
+    block=(blk,1,1),grid=(grd,1,1))
+drv.memcpy_dtoh(output_array, output_array_gpu)
+
+
+# consider aggregating results also in parallel on GPU for more than 10k threads
+for ans in output_array[0]:
+    pi = pi + ans
 
 pi = 4 * pi
 print("pi = {}, terms = {}, number of threads = {}".format(pi, n, threads))
